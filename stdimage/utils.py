@@ -85,9 +85,11 @@ def pre_save_delete_callback(sender, instance, **kwargs):
                     obj_field.delete(False)
 
 
-def render_variations(app_label, model_name, field_name, pk):
+def render_variations(app_label, model_name, field_name, file_name, replace=False):
+    """
+    Renders all variations for a given field.
+    """
     model = get_model(app_label, model_name)
-    obj = model.objects.get(pk=pk)
+    obj = model.objects.get(**{field_name: file_name})
     field_file = getattr(obj, field_name)
-    field_file.render_variations()
-    return False
+    field_file.render_variations(replace=replace)

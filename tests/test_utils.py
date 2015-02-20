@@ -16,6 +16,6 @@ class TestRenderVariations(object):
             app_label='tests',
             model_name='manualvariationsmodel',
             field_name='image',
-            pk=instance.pk
+            file_name=instance.image.name
         )
         assert os.path.exists(path)

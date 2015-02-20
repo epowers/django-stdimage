@@ -43,7 +43,7 @@ class StdImageFieldFile(ImageFieldFile):
                 app_label=self.instance._meta.app_label,
                 model_name=model_name,
                 field_name=self.field.name,
-                pk=self.instance.pk
+                file_name=self.name
             )
         if not isinstance(render_variations, bool):
             msg = (

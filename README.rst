@@ -164,10 +164,10 @@ Async image processing
     from stdimage.utils import render_variations
 
     @app.task()
-    def process_image(app_label, model_name, field_name, pk):
-        render_variations(app_label, model_name, field_name, pk)
+    def process_image(app_label, model_name, field_name, file_name):
+        render_variations(app_label, model_name, field_name, file_name)
         model_class = get_model(app_label, models_name)
-        obj = model_class.objects.get(pk=pk)
+        obj = model_class.objects.get(**{field_name: file_name})
         obj.processed = True
         obj.save()
 
