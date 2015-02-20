@@ -85,7 +85,8 @@ def pre_save_delete_callback(sender, instance, **kwargs):
                     obj_field.delete(False)
 
 
-def render_variations(app_label, model_name, field_name, file_name, replace=False):
+def render_variations(app_label, model_name, field_name, file_name,
+                      replace=False):
     """
     Renders all variations for a given field.
     """

@@ -4,6 +4,7 @@ from __future__ import (absolute_import, unicode_literals)
 from io import BytesIO
 import logging
 import os
+from threading import Thread
 
 from django.db.models import signals
 from django.db.models.fields.files import ImageField, ImageFileDescriptor, \
@@ -52,46 +53,50 @@ class StdImageFieldFile(ImageFieldFile):
                 ) % type(render_variations)
             raise TypeError(msg)
         if render_variations:
-            self.render_variations(content=content)
+            self.render_variations()
 
     @staticmethod
     def is_smaller(img, variation):
         return img.size[0] > variation['width'] \
             or img.size[1] > variation['height']
 
-    def render_variations(self, content=None):
+    def render_variations(self, replace=False):
         """
         Renders all image variations and saves them to the storage
         """
         variations = self.field.variations
-        content = content or self.file
-        for key, variation in variations.items():
-            self.render_variation(content, variation)
+        threads = [
+            Thread(target=self.render_variation, kwargs={
+                'storage': self.storage,
+                'variation': variation,
+                'file_name': self.name,
+                'replace': replace
+            })
+            for key, variation in variations.items()
+        ]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
 
-    def render_variation(self, content, variation, replace=False):
+    @classmethod
+    def render_variation(cls, storage, file_name, variation, replace=False):
         """
         Renders an image variation and saves it to the storage
         """
-        variation_name = self.get_variation_name(self.name, variation['name'])
-        if self.storage.exists(variation_name):
+        variation_name = cls.get_variation_name(file_name, variation['name'])
+        if storage.exists(variation_name):
             if replace:
-                self.storage.delete(variation_name)
+                storage.delete(variation_name)
                 logger.info('File "{}" already exists and has been replaced.')
             else:
                 logger.info('File "{}" already exists.')
                 return variation_name
 
-        try:
-            content.seek(0)
-        except AttributeError:
-            pass
-
         resample = variation['resample']
 
-        with Image.open(content) as img:
+        with Image.open(storage.open(file_name)) as img:
             file_format = img.format
 
-            if self.is_smaller(img, variation):
+            if cls.is_smaller(img, variation):
                 factor = 1
                 while (img.size[0] / factor >
                        2 * variation['width'] and
@@ -120,7 +125,7 @@ class StdImageFieldFile(ImageFieldFile):
             with BytesIO() as file_buffer:
                 img.save(file_buffer, file_format)
                 f = ContentFile(file_buffer.getvalue())
-                self.storage.save(variation_name, f)
+                storage.save(variation_name, f)
         return variation_name
 
     @classmethod

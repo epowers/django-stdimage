@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 from __future__ import (unicode_literals)
 import os
+import tempfile
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,7 +29,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
 )
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = tempfile.mkdtemp()
 
 SITE_ID = 1
 ROOT_URLCONF = 'tests.urls'

@@ -1,21 +1,34 @@
 import os
-from django.core.management import call_command
 import time
-from tests.models import ThumbnailModel
+
+from django.core.management import call_command
+
+from tests.models import ThumbnailModel, ManualVariationsModel
 
 
 class TestRenderVariations(object):
-
     def test_no_options(self, image_upload_file):
-        obj = ThumbnailModel.objects.create(image=image_upload_file)
+        obj = ManualVariationsModel.objects.create(image=image_upload_file)
         file_path = obj.image.thumbnail.path
-        assert os.path.exists(file_path)
-        os.remove(file_path)
         call_command(
             'rendervariations',
-            'tests.ThumbnailModel.image'
+            'tests.ManualVariationsModel.image'
         )
         assert os.path.exists(file_path)
+
+    def test_multiprocessing(self, image_upload_file):
+        file_names = [
+            ManualVariationsModel.objects.create(
+                image=image_upload_file
+            ).image.thumbnail.path
+            for _ in range(1000)
+        ]
+        assert not any([os.path.exists(f) for f in file_names])
+        call_command(
+            'rendervariations',
+            'tests.ManualVariationsModel.image'
+        )
+        assert any([os.path.exists(f) for f in file_names])
 
     def test_no_replace(self, image_upload_file):
         obj = ThumbnailModel.objects.create(image=image_upload_file)
@@ -45,15 +58,3 @@ class TestRenderVariations(object):
         assert os.path.exists(file_path)
         after = os.path.getmtime(file_path)
         assert before != after
-
-    def test_start_at_pk(self, image_upload_file):
-        obj = ThumbnailModel.objects.create(image=image_upload_file)
-        file_path = obj.image.thumbnail.path
-        assert os.path.exists(file_path)
-        os.remove(file_path)
-        obj_2 = ThumbnailModel.objects.create(image=image_upload_file)
-        call_command(
-            'rendervariations',
-            'tests.ThumbnailModel.image@%d' % obj_2.pk,
-        )
-        assert not os.path.exists(file_path)

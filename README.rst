@@ -37,6 +37,8 @@ Django Field that implement the following features:
 * Resize images to different sizes
 * Access thumbnails on model level, no template tags required
 * Preserves original image
+* Asynchronous rendering (Celery & Co)
+* Multi threading and processing for optimum performance
 * Restrict accepted image dimensions
 * Rename files to a standardized name (using a callable upload_to)
 
@@ -196,6 +198,12 @@ Re-rendering variations
 
  The `replace` option will replace all existing files.
  There is currently a memory leak, that's why you should avoid using the `replace` option in cron jobs.
+
+Multi threading and multi processing
+  Since version 2 stdImage supports multiprocessing und multithreading.
+  Every image is rendered in separate process, every variation in a separate thread.
+  Tho this will result increased performance
+  you might experience an increased memory footprint.
 
 
 Testing

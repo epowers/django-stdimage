@@ -4,7 +4,10 @@ import resource
 
 from django.core.management import BaseCommand
 from django.db.models.loading import get_model
+from multiprocessing import Process
 import progressbar
+
+from stdimage.utils import render_variations
 
 
 class MemoryUsageWidget(progressbar.widgets.Widget):
@@ -12,11 +15,6 @@ class MemoryUsageWidget(progressbar.widgets.Widget):
         return 'RAM: {0:10.1f} MB'.format(
             resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         )
-
-
-class CurrentInstanceWidget(progressbar.WidgetHFill):
-    def update(self, pbar, width):
-        return 'Object: {0}@pk={1}'.format(pbar.instance, pbar.instance.pk)
 
 
 class Command(BaseCommand):
@@ -33,38 +31,38 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         replace = options.get('replace')
         for route in args:
-            pk = None
             app_label, model_name, field_name = route.rsplit('.')
-            if '@' in field_name:
-                field_name, pk = field_name.split('@', 1)
             model_class = get_model(app_label, model_name)
             queryset = model_class.objects \
                 .exclude(**{'%s__isnull' % field_name: True}) \
-                .exclude(**{field_name: ''}) \
-                .order_by('pk')
-            if pk:
-                queryset = queryset.filter(pk__gte=pk)
-            total = queryset.count()
-            prog = progressbar.ProgressBar(maxval=total, widgets=(
-                progressbar.RotatingMarker(),
-                ' | ', MemoryUsageWidget(),
-                ' | ', progressbar.ETA(),
-                ' | ', progressbar.Percentage(),
-                ' ', progressbar.Bar(),
-                ' ', CurrentInstanceWidget(),
-            ))
-            i = 0
-            for instance in queryset:
-                field_file = getattr(instance, field_name)
-                field = field_file.field
-                prog.instance = instance
-                prog.update(i)
-                for name, variation in field.variations.items():
-                    field_file.render_variation(
-                        field_file,
-                        variation,
-                        replace
-                    )
-                field_file.close()
-                i += 1
+                .exclude(**{field_name: ''})
+            prog = self.get_processbar(queryset.count())
+            images = queryset.values_list(field_name, flat=True)
+            processes = [
+                Process(target=self.render_field_variations, kwargs=dict(
+                    prog=prog,
+                    app_label=app_label,
+                    model_name=model_name,
+                    field_name=field_name,
+                    file_name=file_name,
+                    replace=replace,
+                    ))
+                for file_name in images
+            ]
+            [p.start() for p in processes]
+            [p.join() for p in processes]
             prog.finish()
+
+    @staticmethod
+    def render_field_variations(prog, **kwargs):
+        render_variations(**kwargs)
+        prog += 1
+
+    def get_processbar(self, count):
+        return progressbar.ProgressBar(maxval=count, widgets=(
+            progressbar.RotatingMarker(),
+            ' | ', MemoryUsageWidget(),
+            ' | ', progressbar.ETA(),
+            ' | ', progressbar.Percentage(),
+            ' ', progressbar.Bar(),
+        ))
