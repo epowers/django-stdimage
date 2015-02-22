@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import (absolute_import, unicode_literals)
 import resource
+import traceback
+from multiprocessing import Pool, cpu_count
+import sys
 
 from django.core.management import BaseCommand
 from django.db.models.loading import get_model
-from multiprocessing import Process
 import progressbar
 
 from stdimage.utils import render_variations
+
+
+BAR = None
 
 
 class MemoryUsageWidget(progressbar.widgets.Widget):
@@ -36,33 +41,48 @@ class Command(BaseCommand):
             queryset = model_class.objects \
                 .exclude(**{'%s__isnull' % field_name: True}) \
                 .exclude(**{field_name: ''})
-            prog = self.get_processbar(queryset.count())
             images = queryset.values_list(field_name, flat=True)
-            processes = [
-                Process(target=self.render_field_variations, kwargs=dict(
-                    prog=prog,
+            pool = Pool(
+                initializer=init_progressbar,
+                initargs=[queryset.count()]
+            )
+            args = [
+                dict(
                     app_label=app_label,
                     model_name=model_name,
                     field_name=field_name,
                     file_name=file_name,
                     replace=replace,
-                    ))
+                )
                 for file_name in images
             ]
-            [p.start() for p in processes]
-            [p.join() for p in processes]
-            prog.finish()
+            pool.map(render_field_variations, args)
+            pool.apply(finish_progressbar)
+            pool.close()
+            pool.join()
 
-    @staticmethod
-    def render_field_variations(prog, **kwargs):
+
+def init_progressbar(count):
+    global BAR
+    BAR = progressbar.ProgressBar(maxval=count, widgets=(
+        progressbar.RotatingMarker(),
+        ' | ', MemoryUsageWidget(),
+        ' | CPUs: {}'.format(cpu_count()),
+        ' | ', progressbar.AdaptiveETA(),
+        ' | ', progressbar.Percentage(),
+        ' ', progressbar.Bar(),
+    ))
+
+
+def finish_progressbar():
+    global BAR
+    BAR.finish()
+
+
+def render_field_variations(kwargs):
+    try:
+        global BAR
         render_variations(**kwargs)
-        prog += 1
-
-    def get_processbar(self, count):
-        return progressbar.ProgressBar(maxval=count, widgets=(
-            progressbar.RotatingMarker(),
-            ' | ', MemoryUsageWidget(),
-            ' | ', progressbar.ETA(),
-            ' | ', progressbar.Percentage(),
-            ' ', progressbar.Bar(),
-        ))
+        BAR += 1
+    except:
+        raise Exception("".join(traceback.format_exception(*sys.exc_info())))
