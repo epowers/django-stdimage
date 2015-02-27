@@ -4,10 +4,12 @@ from __future__ import (absolute_import, unicode_literals)
 from io import BytesIO
 import logging
 import os
+from django.core.files.storage import DefaultStorage
 
 from django.db.models import signals
-from django.db.models.fields.files import ImageField, ImageFileDescriptor, \
-    ImageFieldFile
+from django.db.models.fields.files import (
+    ImageField, ImageFileDescriptor, ImageFieldFile
+)
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
 
@@ -35,66 +37,85 @@ class StdImageFieldFile(ImageFieldFile):
 
     def save(self, name, content, save=True):
         super(StdImageFieldFile, self).save(name, content, save)
-
-        for key, variation in self.field.variations.items():
-            self.render_and_save_variation(name, content, variation)
+        render_variations = self.field.render_variations
+        if callable(render_variations):
+            render_variations = render_variations(
+                file_name=self.name,
+                variations=self.field.variations,
+                storage=self.storage,
+            )
+        if not isinstance(render_variations, bool):
+            msg = (
+                '"render_variations" callable expects a boolean return value,'
+                ' but got %s'
+                ) % type(render_variations)
+            raise TypeError(msg)
+        if render_variations:
+            self.render_variations()
 
     @staticmethod
     def is_smaller(img, variation):
         return img.size[0] > variation['width'] \
             or img.size[1] > variation['height']
 
-    def render_and_save_variation(self, name, content, variation,
-                                  replace=False):
+    def render_variations(self, replace=False):
         """
-        Renders the image variations and saves them to the storage
+        Renders all image variations and saves them to the storage
         """
-        variation_name = self.get_variation_name(self.name, variation['name'])
-        if self.storage.exists(variation_name):
+        for key, variation in self.field.variations.items():
+            self.render_variation(self.name, variation, replace, self.storage)
+
+    @classmethod
+    def render_variation(cls, file_name, variation, replace=False,
+                         storage=DefaultStorage()):
+        """
+        Renders an image variation and saves it to the storage
+        """
+        variation_name = cls.get_variation_name(file_name, variation['name'])
+        if storage.exists(variation_name):
             if replace:
-                self.storage.delete(variation_name)
+                storage.delete(variation_name)
                 logger.info('File "{}" already exists and has been replaced.')
             else:
                 logger.info('File "{}" already exists.')
                 return variation_name
 
-        content.seek(0)
-
         resample = variation['resample']
 
-        with Image.open(content) as img:
-            file_format = img.format
+        with storage.open(file_name) as f:
+            with Image.open(f) as img:
+                file_format = img.format
 
-            if self.is_smaller(img, variation):
-                factor = 1
-                while (img.size[0] / factor
-                        > 2 * variation['width']
-                       and img.size[1] * 2 / factor
-                        > 2 * variation['height']):
-                    factor *= 2
-                if factor > 1:
-                    img.thumbnail(
-                        (int(img.size[0] / factor),
-                         int(img.size[1] / factor)),
-                        resample=resample
-                    )
+                if cls.is_smaller(img, variation):
+                    factor = 1
+                    while img.size[0] / factor \
+                            > 2 * variation['width'] \
+                            and img.size[1] * 2 / factor \
+                            > 2 * variation['height']:
+                        factor *= 2
+                    if factor > 1:
+                        img.thumbnail(
+                            (int(img.size[0] / factor),
+                             int(img.size[1] / factor)),
+                            resample=resample
+                        )
 
-                if variation['crop']:
-                    img = ImageOps.fit(
-                        img,
-                        (variation['width'], variation['height']),
-                        method=resample
-                    )
-                else:
-                    img.thumbnail(
-                        (variation['width'], variation['height']),
-                        resample=resample
-                    )
+                    if variation['crop']:
+                        img = ImageOps.fit(
+                            img,
+                            (variation['width'], variation['height']),
+                            method=resample
+                        )
+                    else:
+                        img.thumbnail(
+                            (variation['width'], variation['height']),
+                            resample=resample
+                        )
 
-            with BytesIO() as file_buffer:
-                img.save(file_buffer, file_format)
-                f = ContentFile(file_buffer.getvalue())
-                self.storage.save(variation_name, f)
+                with BytesIO() as file_buffer:
+                    img.save(file_buffer, file_format)
+                    f = ContentFile(file_buffer.getvalue())
+                    storage.save(variation_name, f)
         return variation_name
 
     @classmethod
@@ -148,20 +169,34 @@ class StdImageField(ImageField):
     }
 
     def __init__(self, verbose_name=None, name=None, variations=None,
-                 force_min_size=False, *args, **kwargs):
+                 render_variations=True, force_min_size=False,
+                 *args, **kwargs):
         """
         Standardized ImageField for Django
         Usage: StdImageField(upload_to='PATH',
          variations={'thumbnail': {"width", "height", "crop", "resample"}})
         :param variations: size variations of the image
         :rtype variations: StdImageField
+        :param render_variations: boolean or callable that returns a boolean.
+         The callable gets passed the app_name, model, field_name and pk.
+         Default: True
+        :rtype render_variations: bool, callable
         """
         if not variations:
             variations = {}
         if not isinstance(variations, dict):
-            raise TypeError('"variations" must be of type dict.')
+            msg = ('"variations" expects a dict,'
+                   ' but got %s') % type(variations)
+            raise TypeError(msg)
+        if not (isinstance(render_variations, bool) or
+                callable(render_variations)):
+            msg = ('"render_variations" excepts a boolean or callable,'
+                   ' but got %s') % type(render_variations)
+            raise TypeError(msg)
+
         self._variations = variations
         self.force_min_size = force_min_size
+        self.render_variations = render_variations
         self.variations = {}
 
         for nm, prm in list(variations.items()):

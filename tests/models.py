@@ -2,8 +2,10 @@ from django.db.models.signals import post_delete, pre_save
 from django.db import models
 
 from stdimage import StdImageField
-from stdimage.utils import pre_delete_delete_callback, pre_save_delete_callback, \
-    UploadTo, UploadToAutoSlugClassNameDir, UploadToUUID
+from stdimage.utils import (
+    pre_delete_delete_callback, pre_save_delete_callback,
+    UploadTo, UploadToAutoSlugClassNameDir, UploadToUUID,
+    render_variations)
 from stdimage.validators import MaxSizeValidator, MinSizeValidator
 
 
@@ -80,6 +82,29 @@ class AutoSlugClassNameDirModel(models.Model):
 
 class UUIDModel(models.Model):
     image = StdImageField(upload_to=UploadToUUID(path='img'))
+
+
+class ManualVariationsModel(models.Model):
+    """delays creation of 150x150 thumbnails until it is called manually"""
+    image = StdImageField(
+        upload_to=UploadTo(name='image', path='img'),
+        variations={'thumbnail': (150, 150, True)},
+        render_variations=False
+    )
+
+
+def render_job(**kwargs):
+    render_variations(**kwargs)
+    return False
+
+
+class UtilVariationsModel(models.Model):
+    """delays creation of 150x150 thumbnails until it is called manually"""
+    image = StdImageField(
+        upload_to=UploadTo(name='image', path='img'),
+        variations={'thumbnail': (150, 150, True)},
+        render_variations=render_job
+    )
 
 
 post_delete.connect(pre_delete_delete_callback, sender=SimpleModel)

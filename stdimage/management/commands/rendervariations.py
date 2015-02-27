@@ -56,16 +56,8 @@ class Command(BaseCommand):
             i = 0
             for instance in queryset:
                 field_file = getattr(instance, field_name)
-                field = field_file.field
                 prog.instance = instance
+                field_file.render_variations(replace)
                 prog.update(i)
-                for name, variation in field.variations.items():
-                    field_file.render_and_save_variation(
-                        field_file.name,
-                        field_file,
-                        variation,
-                        replace
-                    )
-                field_file.close()
                 i += 1
             prog.finish()

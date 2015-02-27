@@ -2,10 +2,11 @@
 from __future__ import (absolute_import, unicode_literals)
 
 import uuid
+from django.core.files.storage import DefaultStorage
 from django.utils.text import slugify
 
 import os
-from .models import StdImageField
+from .models import StdImageField, StdImageFieldFile
 
 
 class UploadTo(object):
@@ -82,3 +83,14 @@ def pre_save_delete_callback(sender, instance, **kwargs):
                 instance_field = getattr(instance, field.name)
                 if obj_field and obj_field != instance_field:
                     obj_field.delete(False)
+
+
+def render_variations(file_name, variations, replace=False,
+                      storage=DefaultStorage()):
+    """
+    Renders all variations for a given field.
+    """
+    for key, variation in variations.items():
+        StdImageFieldFile.render_variation(
+            file_name, variation, replace, storage
+        )

@@ -17,10 +17,11 @@ from django.core.files import File
 from django.test import TestCase
 from django.contrib.auth.models import User
 
-from .models import SimpleModel, ResizeModel, AdminDeleteModel,\
-    ThumbnailModel, ResizeCropModel, AutoSlugClassNameDirModel,\
-    UUIDModel
-
+from .models import (
+    SimpleModel, ResizeModel, AdminDeleteModel,
+    ThumbnailModel, ResizeCropModel, AutoSlugClassNameDirModel,
+    UUIDModel,
+    UtilVariationsModel)
 
 IMG_DIR = os.path.join(settings.MEDIA_ROOT, 'img')
 
@@ -194,6 +195,14 @@ class TestUtils(TestStdImage):
         file_path = os.path.join(
             IMG_DIR,
             '653d1c6863404b9689b75fa930c9d0a0.gif'
+        )
+        self.assertTrue(os.path.exists(file_path))
+
+    def test_render_variations_callback(self):
+        UtilVariationsModel.objects.create(image=self.fixtures['100.gif'])
+        file_path = os.path.join(
+            IMG_DIR,
+            'image.thumbnail.gif'
         )
         self.assertTrue(os.path.exists(file_path))
 
