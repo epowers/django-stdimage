@@ -49,7 +49,7 @@ class StdImageFieldFile(ImageFieldFile):
         """
         Renders the image variations and saves them to the storage
         """
-        variation_name = self.get_variation_name(self.name, variation['name'])
+        variation_name = self.get_variation_name(self.name, variation)
         if self.storage.exists(variation_name):
             if replace:
                 self.storage.delete(variation_name)
@@ -64,6 +64,8 @@ class StdImageFieldFile(ImageFieldFile):
 
         with Image.open(content) as img:
             file_format = img.format
+            params = {'format': file_format}
+            params.update(variation)
 
             if self.is_smaller(img, variation):
                 factor = 1
@@ -92,24 +94,24 @@ class StdImageFieldFile(ImageFieldFile):
                     )
 
             with BytesIO() as file_buffer:
-                img.save(file_buffer, file_format)
+                img.save(file_buffer, **params)
                 f = ContentFile(file_buffer.getvalue())
                 self.storage.save(variation_name, f)
         return variation_name
 
     @classmethod
-    def get_variation_name(cls, file_name, variation_name):
+    def get_variation_name(cls, file_name, variation):
         """
         Returns the variation file name based on the model
         it's field and it's variation.
         """
-        ext = cls.get_file_extension(file_name)
+        ext = cls.get_file_extension(file_name)[1:]
         path = file_name.rsplit('/', 1)[0]
         file_name = file_name.rsplit('/', 1)[-1].rsplit('.', 1)[0]
-        file_name = '{file_name}.{variation_name}{extension}'.format(**{
+        file_name = '{file_name}.{variation_name}.{extension}'.format(**{
             'file_name': file_name,
-            'variation_name': variation_name,
-            'extension': ext,
+            'variation_name': variation['name'],
+            'extension': variation.get('format',ext),
         })
         return os.path.join(path, file_name)
 
@@ -125,7 +127,7 @@ class StdImageFieldFile(ImageFieldFile):
         super(StdImageFieldFile, self).delete(save)
 
     def delete_variations(self):
-        for variation in self.field.variations:
+        for name, variation in self.field.variations.items():
             variation_name = self.get_variation_name(self.name, variation)
             self.storage.delete(variation_name)
 
@@ -201,7 +203,7 @@ class StdImageField(ImageField):
                 for name, variation in list(self.variations.items()):
                     variation_name = self.attr_class.get_variation_name(
                         field.name,
-                        variation['name']
+                        variation
                     )
                     variation_field = ImageFieldFile(instance,
                                                      self,
