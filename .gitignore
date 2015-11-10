@@ -1,4 +1,5 @@
 *.pyc
+*.mo
 django_stdimage.egg-info
 build/
 dist/

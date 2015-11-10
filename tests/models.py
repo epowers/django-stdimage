@@ -1,11 +1,10 @@
-from django.db.models.signals import post_delete, pre_save
 from django.db import models
+from django.db.models.signals import post_delete, pre_save
 
 from stdimage import StdImageField
-from stdimage.utils import (
-    pre_delete_delete_callback, pre_save_delete_callback,
-    UploadTo, UploadToAutoSlugClassNameDir, UploadToUUID
-)
+from stdimage.utils import (UploadTo, UploadToAutoSlugClassNameDir,
+                            UploadToUUID, pre_delete_delete_callback,
+                            pre_save_delete_callback, render_variations)
 from stdimage.validators import MaxSizeValidator, MinSizeValidator
 
 
@@ -83,6 +82,48 @@ class AutoSlugClassNameDirModel(models.Model):
 class UUIDModel(models.Model):
     image = StdImageField(upload_to=UploadToUUID(path='img'))
 
+
+class CustomManager(models.Manager):
+    """Just like Django's default, but a different class."""
+    pass
+
+
+class CustomManagerModel(models.Model):
+    customer_manager = CustomManager()
+
+    class Meta:
+        abstract = True
+
+
+class ManualVariationsModel(CustomManagerModel):
+    """delays creation of 150x150 thumbnails until it is called manually"""
+    image = StdImageField(
+        upload_to=UploadTo(name='image', path='img'),
+        variations={'thumbnail': (150, 150, True)},
+        render_variations=False
+    )
+
+
+def render_job(**kwargs):
+    render_variations(**kwargs)
+    return False
+
+
+class UtilVariationsModel(models.Model):
+    """delays creation of 150x150 thumbnails until it is called manually"""
+    image = StdImageField(
+        upload_to=UploadTo(name='image', path='img'),
+        variations={'thumbnail': (150, 150, True)},
+        render_variations=render_job
+    )
+
+
+class ThumbnailWithoutDirectoryModel(models.Model):
+    """Save into a generated filename that does not contain any '/' char"""
+    image = StdImageField(
+        upload_to=lambda instance, filename: 'custom.gif',
+        variations={'thumbnail': {'width': 150, 'height': 150}},
+    )
 
 post_delete.connect(pre_delete_delete_callback, sender=SimpleModel)
 pre_save.connect(pre_save_delete_callback, sender=AdminDeleteModel)

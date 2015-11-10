@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, unicode_literals)
+from __future__ import absolute_import, unicode_literals
 
 from io import BytesIO
-from PIL import Image
+
 from django.core.exceptions import ValidationError
 from django.core.validators import BaseValidator
 from django.utils.translation import ugettext_lazy as _
+from PIL import Image
 
 
 class BaseSizeValidator(BaseValidator):
-    compare = lambda self, x: True
+    """Base validator that validates the size of an image."""
+
+    def compare(self, x):
+        return True
 
     def __init__(self, width, height):
         self.limit_value = width, height
@@ -32,17 +36,29 @@ class BaseSizeValidator(BaseValidator):
 
 
 class MaxSizeValidator(BaseSizeValidator):
-    compare = lambda self, img_size, max_size:\
-        img_size[0] > max_size[0] or img_size[1] > max_size[1]
+    """
+    ImageField validator to validate the max with and height of an image.
+
+    You may use float("inf") as an infinite boundary.
+    """
+
+    def compare(self, img_size, max_size):
+        return img_size[0] > max_size[0] or img_size[1] > max_size[1]
     message = _('The image you uploaded is too large.'
-                ' The required minimal resolution is:'
+                ' The required maximum resolution is:'
                 ' %(with)sx%(height)s px.')
     code = 'max_resolution'
 
 
 class MinSizeValidator(BaseSizeValidator):
-    compare = lambda self, img_size, min_size:\
-        img_size[0] < min_size[0] or img_size[1] < min_size[1]
+    """
+    ImageField validator to validate the min with and height of an image.
+
+    You may use float("inf") as an infinite boundary.
+    """
+
+    def compare(self, img_size, min_size):
+        return img_size[0] < min_size[0] or img_size[1] < min_size[1]
     message = _('The image you uploaded is too small.'
-                ' The required minimal resolution is:'
+                ' The required minimum resolution is:'
                 ' %(with)sx%(height)s px.')

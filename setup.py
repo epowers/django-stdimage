@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from setuptools import setup, Command, find_packages
+from setuptools import Command, find_packages, setup
 
 
 class PyTest(Command):
@@ -22,7 +22,7 @@ class PyTest(Command):
 
 setup(
     name='django-stdimage',
-    version='1.2.2',
+    version='2.1.1',
     description='Django Standarized Image Field',
     author='codingjoe',
     url='https://github.com/codingjoe/django-stdimage',
@@ -47,15 +47,13 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests", ".egg-info"]),
+    packages=find_packages(exclude=[
+        "*.tests", "*.tests.*", "tests.*", "tests", ".egg-info"
+    ]),
     include_package_data=True,
-    requires=[
-        'Pillow (>=2.5)',
-        'progressbar2 (>=2.7)',
-    ],
     install_requires=[
         'pillow>=2.5',
-        'progressbar2>=2.7',
+        'progressbar2>=3.0.0',
     ],
     cmdclass={'test': PyTest},
 )

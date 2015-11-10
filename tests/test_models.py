@@ -1,5 +1,6 @@
 # coding: utf-8
-from __future__ import (absolute_import, unicode_literals)
+from __future__ import absolute_import, unicode_literals
+
 import filecmp
 import os
 import shutil
@@ -12,15 +13,17 @@ class UUID4Monkey(object):
 
 uuid.__dict__['uuid4'] = lambda: UUID4Monkey()
 
-from django.conf import settings
-from django.core.files import File
-from django.test import TestCase
-from django.contrib.auth.models import User
+from django.conf import settings  # NoQA
+from django.core.files import File  # NoQA
+from django.test import TestCase  # NoQA
+from django.contrib.auth.models import User  # NoQA
 
-from .models import SimpleModel, ResizeModel, AdminDeleteModel,\
-    ThumbnailModel, ResizeCropModel, AutoSlugClassNameDirModel,\
-    UUIDModel
-
+from .models import (
+    SimpleModel, ResizeModel, AdminDeleteModel,
+    ThumbnailModel, ResizeCropModel, AutoSlugClassNameDirModel,
+    UUIDModel,
+    UtilVariationsModel,
+    ThumbnailWithoutDirectoryModel)  # NoQA
 
 IMG_DIR = os.path.join(settings.MEDIA_ROOT, 'img')
 
@@ -142,6 +145,18 @@ class TestModel(TestStdImage):
         path = os.path.join(IMG_DIR, 'image.gif')
         assert not os.path.exists(path)
 
+    def test_thumbnail_save_without_directory(self):
+        obj = ThumbnailWithoutDirectoryModel.objects.create(
+            image=self.fixtures['100.gif']
+        )
+        obj.save()
+        # Our model saves the images directly into the MEDIA_ROOT directory
+        # not IMG_DIR, under a custom name
+        original = os.path.join(settings.MEDIA_ROOT, 'custom.gif')
+        thumbnail = os.path.join(settings.MEDIA_ROOT, 'custom.thumbnail.gif')
+        assert os.path.exists(original)
+        assert os.path.exists(thumbnail)
+
 
 class TestUtils(TestStdImage):
     """Tests Utils"""
@@ -194,6 +209,14 @@ class TestUtils(TestStdImage):
         file_path = os.path.join(
             IMG_DIR,
             '653d1c6863404b9689b75fa930c9d0a0.gif'
+        )
+        self.assertTrue(os.path.exists(file_path))
+
+    def test_render_variations_callback(self):
+        UtilVariationsModel.objects.create(image=self.fixtures['100.gif'])
+        file_path = os.path.join(
+            IMG_DIR,
+            'image.thumbnail.gif'
         )
         self.assertTrue(os.path.exists(file_path))
 

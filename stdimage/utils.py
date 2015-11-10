@@ -1,22 +1,26 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, unicode_literals)
-
-import uuid
-from django.utils.text import slugify
+from __future__ import absolute_import, unicode_literals
 
 import os
-from .models import StdImageField
+import uuid
+
+from django.core.files.storage import DefaultStorage
+from django.utils.text import slugify
+
+from .models import StdImageField, StdImageFieldFile
 
 
 class UploadTo(object):
-    file_pattern = "%(name)s.%(ext)s"
+    file_pattern = "%(name)s%(ext)s"
     path_pattern = "%(path)s"
 
     def __call__(self, instance, filename):
+        path, ext = os.path.splitext(filename)
+        path, name = os.path.split(path)
         defaults = {
-            'ext': filename.rsplit('.', 1)[1],
-            'name': filename.rsplit('.', 1)[0],
-            'path': filename.rsplit('/', 1)[0],
+            'ext': ext,
+            'name': name,
+            'path': path,
             'class_name': instance.__class__.__name__,
         }
         defaults.update(self.kwargs)
@@ -70,7 +74,7 @@ class UploadToAutoSlugClassNameDir(UploadToClassNameDir, UploadToAutoSlug):
 def pre_delete_delete_callback(sender, instance, **kwargs):
     for field in instance._meta.fields:
         if isinstance(field, StdImageField):
-            getattr(instance, field.name).delete()
+            getattr(instance, field.name).delete(False)
 
 
 def pre_save_delete_callback(sender, instance, **kwargs):
@@ -82,3 +86,12 @@ def pre_save_delete_callback(sender, instance, **kwargs):
                 instance_field = getattr(instance, field.name)
                 if obj_field and obj_field != instance_field:
                     obj_field.delete(False)
+
+
+def render_variations(file_name, variations, replace=False,
+                      storage=DefaultStorage()):
+    """Render all variations for a given field."""
+    for key, variation in variations.items():
+        StdImageFieldFile.render_variation(
+            file_name, variation, replace, storage
+        )

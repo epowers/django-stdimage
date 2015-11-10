@@ -1,4 +1,8 @@
 #! /usr/bin/env python
+import base64
+import sys
+import zlib
+
 
 # Hi There!
 # You may be wondering what this giant blob of binary data here is, you might
@@ -3017,16 +3021,13 @@ zW6FYLg8lk11J7XOWfVCVvm0F2KiNyaeKDgCPH1V7Pz8ZRkrlP2jmdAROkxdP2RJcQirjZ8kIFF/
 mH1szWdxTVmKQB+pisiXvm43FLwGlW0kHFWj8Pfe+/9+GP1/axf19w==
 """
 
-import sys
-import base64
-import zlib
 
 class DictImporter(object):
     def __init__(self, sources):
         self.sources = sources
 
     def find_module(self, fullname, path=None):
-        if fullname == "argparse" and sys.version_info >= (2,7):
+        if fullname == "argparse" and sys.version_info >= (2, 7):
             # we were generated with <python2.7 (which pulls in argparse)
             # but we are running now on a stdlib which has it, so use that.
             return None
@@ -3053,7 +3054,7 @@ class DictImporter(object):
         if is_pkg:
             module.__path__ = [fullname]
 
-        do_exec(co, module.__dict__) # noqa
+        do_exec(co, module.__dict__)  # NoQA
         return sys.modules[fullname]
 
     def get_source(self, name):
@@ -3066,7 +3067,7 @@ if __name__ == "__main__":
     if sys.version_info >= (3, 0):
         exec("def do_exec(co, loc): exec(co, loc)\n")
         import pickle
-        sources = sources.encode("ascii") # ensure bytes
+        sources = sources.encode("ascii")  # ensure bytes
         sources = pickle.loads(zlib.decompress(base64.decodebytes(sources)))
     else:
         import cPickle as pickle
@@ -3077,4 +3078,4 @@ if __name__ == "__main__":
     sys.meta_path.insert(0, importer)
 
     entry = "import pytest; raise SystemExit(pytest.cmdline.main())"
-    do_exec(entry, locals()) # noqa
+    do_exec(entry, locals())  # NoQA

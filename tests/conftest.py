@@ -1,9 +1,10 @@
-import os
-from PIL import Image
-from django import conf
 import io
-from django.core.files.uploadedfile import SimpleUploadedFile
+import os
+
 import pytest
+from django import conf
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 
 
 def pytest_configure():
