@@ -122,6 +122,14 @@ class StdImageFieldFile(ImageFieldFile):
         })
         return os.path.join(path, file_name)
 
+    def get_variation_names(self):
+        variation_names = []
+        for variation in self.field.variations:
+            if self.name:
+                variation_name = self.get_variation_name(self.name, variation)
+                variation_names.append(variation_name)
+        return variation_names
+
     def delete(self, save=True):
         self.delete_variations()
         super(StdImageFieldFile, self).delete(save)
